@@ -1147,8 +1147,12 @@ class PosixProcess():
             # Check list of running pids, if not running it is stale so overwrite
             if isinstance(pid, int):
                 try:
-                    os.kill(pid, 0)
-                    self.lasterror = True
+                    # Don't even try to kill zombies
+                    if procStatus(pid) == 'Z':
+                        self.lasterror = True
+                    else:
+                        os.kill(pid, 0)
+                        self.lasterror = True
                 except OSError:
                     self.lasterror = False
             else:
@@ -1170,3 +1174,11 @@ class PosixProcess():
         if not self.lasterror:
             if os.path.isfile(self.pidpath):
                 os.unlink(self.pidpath)
+
+def procStatus(pid):
+    try:
+        for line in open("/proc/%d/status" % pid).readlines():
+            if line.startswith("State:"):
+                return line.split(":",1)[1].strip().split(' ')[0]
+    except: pass
+    return None
